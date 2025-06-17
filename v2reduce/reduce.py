@@ -1102,7 +1102,7 @@ def get_continuum(skysub, masksky, nbins=50):
     return bigcont
 
     
-def reduce(fn, biastime_list, masterbias_list, flttime_list,
+def reduce(fn, biastime_list, masterbias_list, masterflt_list, flttime_list,
            trace_list, wave_time, wave_list, ftf_list, channel, 
            pca=None, outfolder=os.curdir):
     """
@@ -1160,6 +1160,7 @@ def reduce(fn, biastime_list, masterbias_list, flttime_list,
     specerr = get_spectra_error(E, trace)
 
     # Compute the chi-square of the spectrum to identify bad pixels
+    ACCIDENTAL_LAST_MASTER_FLAT = masterflt_list[-1]  # TODO: This is what was happening in main() in the original code
     masterflt = ACCIDENTAL_LAST_MASTER_FLAT  # TODO: REVIEW! This is the explicit equivalent assignment from a
                                              # TODO: scoping accident with masterflt for loop in main()
     chi2 = get_spectra_chi2(masterflt - masterbias, image, E, trace)
@@ -1433,228 +1434,235 @@ def get_script_path():
     return os.path.dirname(op.realpath(sys.argv[0]))
 
 
+# ######################################################
+# MAIN!
+# ######################################################
 
-# =============================================================================
-# Get Input Args and Folder and Filenames
-# =============================================================================
-
-args = get_args()
-
-infolder = args.infolder
-outfolder = args.outfolder
-
-# Make output folder if it doesn't exist
-mkpath(outfolder)
-
-ROOT_DATA_PATH = args.infolder
-date = args.date
-allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date,
-                                     '*', '*', '*.fits')))
-unit_list = [fn.split('_')[-4] for fn in allfilenames]
-units = np.unique(unit_list)
-observations = np.unique([fn.split('_')[-6]  for fn in allfilenames])
-DIRNAME = get_script_path()
-
-# fiber_radius = CONFIG_FIBER_RADIUS  # Unused variable
-# pca_comp = CONFIG_PCA_COMPONENTS    # Replaced with CONFIG value at top
-
-# =============================================================================
-# Logging
-# =============================================================================
-log = setup_logging('virusp_reductions')
-
-# =============================================================================
-# Get Line List
-# =============================================================================
-for unit in units:
-    channel = unit[-1].lower()
-    line_list = None
-    xref = None
-    limit = None
-    gain = None
-    rdnoise = None
-    if channel == 'b':
-        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(3700., 4630., 2064)
-        continue
-    if channel == 'g':
-        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(4610., 5925., 2064)
-        line_list = Table.read(op.join(DIRNAME, 'line_list', 'virus2_green.txt'), format='ascii')
-        limit = CONFIG_CHANNEL_DETECTOR[channel]['limit']
-        gain = CONFIG_CHANNEL_DETECTOR[channel]['gain']
-        rdnoise = CONFIG_CHANNEL_DETECTOR[channel]['rdnoise']
-    if channel == 'r':
-        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(5900., 7610., 2064)
-        continue
-    if channel == 'd':
-        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(7590., 9300., 2064)
-        continue
-
-    filenames = [fn for fn, un in zip(allfilenames, unit_list) if un == unit]
-
-    # fiberref = 130  # Unused variable
-    lines = np.array(line_list['wavelength'])
-    xref = np.array(line_list['col'])
-    use_kernel = True
-
+def main():
+    args = get_args()
 
     # =============================================================================
-    # Make a list of the objects for each filename, ignore those without 'OBJECT'
-    # in the header
+    # Get Input Args and Folder and Filenames
     # =============================================================================
-    typelist = []
-    gnames = []
-    timelist = []
-    for fn in filenames:
-        try:
-            obj = fn.split('_')[-5] # fits.open(f)[0].header['OBJECT']
-            dateobs = fn.split('_')[-2].split('T')[0]
-            dateobs = '%s-%s-%s' % (dateobs[:4], dateobs[4:6], dateobs[6:])
-            datestring = dateobs # fits.open(f)[0].header['DATE-OBS']
-        except:
+    infolder = args.infolder
+    outfolder = args.outfolder
+
+    # Make output folder if it doesn't exist
+    mkpath(outfolder)
+
+    ROOT_DATA_PATH = args.infolder
+    date = args.date
+    allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date,
+                                         '*', '*', '*.fits')))
+    unit_list = [fn.split('_')[-4] for fn in allfilenames]
+    units = np.unique(unit_list)
+    observations = np.unique([fn.split('_')[-6]  for fn in allfilenames])
+    DIRNAME = get_script_path()
+
+    # fiber_radius = CONFIG_FIBER_RADIUS  # Unused variable
+    # pca_comp = CONFIG_PCA_COMPONENTS    # Replaced with CONFIG value at top
+
+    # =============================================================================
+    # Logging
+    # =============================================================================
+    log = setup_logging('virusp_reductions')
+
+    # =============================================================================
+    # Get Line List
+    # =============================================================================
+    for unit in units:
+        channel = unit[-1].lower()
+        line_list = None
+        xref = None
+        limit = None
+        gain = None
+        rdnoise = None
+        if channel == 'b':
+            def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(3700., 4630., 2064)
             continue
-        typelist.append(obj)
-        gnames.append(fn)
-        timelist.append(Time(datestring))
+        if channel == 'g':
+            def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(4610., 5925., 2064)
+            line_list = Table.read(op.join(DIRNAME, 'line_list', 'virus2_green.txt'), format='ascii')
+            limit = CONFIG_CHANNEL_DETECTOR[channel]['limit']
+            gain = CONFIG_CHANNEL_DETECTOR[channel]['gain']
+            rdnoise = CONFIG_CHANNEL_DETECTOR[channel]['rdnoise']
+        if channel == 'r':
+            def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(5900., 7610., 2064)
+            continue
+        if channel == 'd':
+            def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(7590., 9300., 2064)
+            continue
 
-    # =============================================================================
-    # Get the bias filenames, domeflat filenames, and arc lamp filenames
-    # =============================================================================
-    log.info('Sorting Files')
-    bnames = [args.bias_label]
-    dnames = [args.dark_label]
-    anames = [args.arc_label]
-    tnames = [args.twilight_flat_label]
-    dfnames = [args.flat_label]
-    snames = ['feige', 'bd']
-    bias_filenames = get_filenames(gnames, typelist, bnames)
-    twiflt_filenames = get_filenames(gnames, typelist, tnames)
-    domeflt_filenames = get_filenames(gnames, typelist, dfnames)
-    arc_filenames = get_filenames(gnames, typelist, anames)
-    std_filenames = get_filenames(gnames, typelist, snames)
-    if args.reduce_all:
-        gna = []
-        for gn in gnames:
-            if gn in bias_filenames:
+        filenames = [fn for fn, un in zip(allfilenames, unit_list) if un == unit]
+
+        # fiberref = 130  # Unused variable
+        lines = np.array(line_list['wavelength'])
+        xref = np.array(line_list['col'])
+        use_kernel = True
+
+
+        # =============================================================================
+        # Make a list of the objects for each filename, ignore those without 'OBJECT'
+        # in the header
+        # =============================================================================
+        typelist = []
+        gnames = []
+        timelist = []
+        for fn in filenames:
+            try:
+                obj = fn.split('_')[-5] # fits.open(f)[0].header['OBJECT']
+                dateobs = fn.split('_')[-2].split('T')[0]
+                dateobs = '%s-%s-%s' % (dateobs[:4], dateobs[4:6], dateobs[6:])
+                datestring = dateobs # fits.open(f)[0].header['DATE-OBS']
+            except:
                 continue
-            if gn in arc_filenames:
-                continue
-            if gn in twiflt_filenames:
-                continue
-            if gn in domeflt_filenames:
-                continue
-            gna.append(gn)
-        sci_filenames = np.array(gna)
-    else:
-        if args.name is not None:
-            sci_filenames = get_filenames(gnames, typelist, [args.name])
+            typelist.append(obj)
+            gnames.append(fn)
+            timelist.append(Time(datestring))
+
+        # =============================================================================
+        # Get the bias filenames, domeflat filenames, and arc lamp filenames
+        # =============================================================================
+        log.info('Sorting Files')
+        bnames = [args.bias_label]
+        dnames = [args.dark_label]
+        anames = [args.arc_label]
+        tnames = [args.twilight_flat_label]
+        dfnames = [args.flat_label]
+        snames = ['feige', 'bd']
+        bias_filenames = get_filenames(gnames, typelist, bnames)
+        twiflt_filenames = get_filenames(gnames, typelist, tnames)
+        domeflt_filenames = get_filenames(gnames, typelist, dfnames)
+        arc_filenames = get_filenames(gnames, typelist, anames)
+        std_filenames = get_filenames(gnames, typelist, snames)
+        if args.reduce_all:
+            gna = []
+            for gn in gnames:
+                if gn in bias_filenames:
+                    continue
+                if gn in arc_filenames:
+                    continue
+                if gn in twiflt_filenames:
+                    continue
+                if gn in domeflt_filenames:
+                    continue
+                gna.append(gn)
+            sci_filenames = np.array(gna)
         else:
-            sci_filenames = []
-    
-    if len(twiflt_filenames) > 0:
-        flt_filenames = twiflt_filenames
-    else:
-        flt_filenames = domeflt_filenames
-    
-    # =============================================================================
-    # Use the file numbers for connecting blocks of observations
-    # =============================================================================
-    biasnum = [int(op.basename(op.dirname(op.dirname(fn)))) for fn in bias_filenames]
-    fltnum = [int(op.basename(op.dirname(op.dirname(fn)))) for fn in flt_filenames]
-    arcnum = [int(op.basename(op.dirname(op.dirname(fn)))) for fn in arc_filenames]
-    bias_breakind = np.where(np.diff(biasnum) > 1)[0]
-    flt_breakind = np.where(np.diff(fltnum) > 1)[0]
-    arc_breakind = np.where(np.diff(arcnum) > 1)[0]
-    
-    # Load reference fiber locations from a predefined file
-    ref = Table.read(op.join(DIRNAME, 'IFUcen', 'IFUcen_VIRUS2_D3G.txt'), format='ascii')  
-    ref.reverse()
-    # =============================================================================
-    # Make a master bias, master dome flat, and master arc for the first set of OBS
-    # =============================================================================
-    log.info('Making master bias frames')
-    masterbias_list, biastime_list = make_mastercal_list(bias_filenames,
-                                                         bias_breakind, channel)
-    
-    log.info('Making master flat frames')
-    
-    masterflt_list, flttime_list = make_mastercal_list(flt_filenames,
-                                                       flt_breakind, channel)
-    
-    log.info('Making master arc frames')
-    masterarc_list, arctime_list = make_mastercal_list(arc_filenames,
-                                                       arc_breakind, channel)
-    
-    
-    # =============================================================================
-    # Get trace from the dome flat
-    # =============================================================================
-    trace_list = []
-    fltspec = []
-    log.info('Getting trace for each master flat')
+            if args.name is not None:
+                sci_filenames = get_filenames(gnames, typelist, [args.name])
+            else:
+                sci_filenames = []
 
-    ACCIDENTAL_LAST_MASTER_FLAT = None  # TODO: REVIEW! accidental assignment from last iteration in for loop
+        if len(twiflt_filenames) > 0:
+            flt_filenames = twiflt_filenames
+        else:
+            flt_filenames = domeflt_filenames
 
-    for masterflt, mtime in zip(masterflt_list, flttime_list):
-        masterbias = masterbias_list[get_cal_index(mtime, biastime_list)]
-        trace, good, Tchunk, xchunk = get_trace(masterflt-masterbias, ref)
-        plot_trace(trace, Tchunk, xchunk, outfolder=outfolder)
-        trace_list.append([trace, good])
-        domeflat_spec = get_spectra(masterflt-masterbias, trace)
-        domeflat_error = 0. * domeflat_spec
-        fltspec.append([domeflat_spec, domeflat_error])
+        # =============================================================================
+        # Use the file numbers for connecting blocks of observations
+        # =============================================================================
+        biasnum = [int(op.basename(op.dirname(op.dirname(fn)))) for fn in bias_filenames]
+        fltnum = [int(op.basename(op.dirname(op.dirname(fn)))) for fn in flt_filenames]
+        arcnum = [int(op.basename(op.dirname(op.dirname(fn)))) for fn in arc_filenames]
+        bias_breakind = np.where(np.diff(biasnum) > 1)[0]
+        flt_breakind = np.where(np.diff(fltnum) > 1)[0]
+        arc_breakind = np.where(np.diff(arcnum) > 1)[0]
 
-    ACCIDENTAL_LAST_MASTER_FLAT = masterflt  # TODO: REVIEW! accidental assignment from last iteration in for loop
-                                             # TODO: masterflt is only defined by this for loop, then later used as a global in reduce()
+        # Load reference fiber locations from a predefined file
+        ref = Table.read(op.join(DIRNAME, 'IFUcen', 'IFUcen_VIRUS2_D3G.txt'), format='ascii')
+        ref.reverse()
+        # =============================================================================
+        # Make a master bias, master dome flat, and master arc for the first set of OBS
+        # =============================================================================
+        log.info('Making master bias frames')
+        masterbias_list, biastime_list = make_mastercal_list(bias_filenames,
+                                                             bias_breakind, channel)
 
-    # =============================================================================
-    # Get wavelength from arc lamps
-    # =============================================================================
-    wave_list = []
-    wave_time = []
-    bk1 = np.hstack([0, arc_breakind+1])
-    log.info('Getting wavelength for each master arc')
-    import traceback
-    for masterarc, mtime, bk in zip(masterarc_list, arctime_list, bk1):
-        masterbias = masterbias_list[get_cal_index(mtime, biastime_list)]
-        trace, good = trace_list[get_cal_index(mtime, flttime_list)]
-        lamp_spec = get_spectra(masterarc-masterbias, trace)
-        fits.PrimaryHDU(lamp_spec).writeto('test.fits',overwrite=True)
-        try:
-            wavelength, res, X, W = get_wavelength(lamp_spec, trace, good, 
-                                                   xref, lines, limit=limit, 
-                                                   use_kernel=use_kernel)
-            # Plot wavelength solution for inspection
-            plot_wavelength(lines, W, wavelength, outfolder=outfolder)
+        log.info('Making master flat frames')
 
-        except:
-            log.warning('Could not get wavelength solution for masterarc')
-            log.warning('First file of failed masterarc included: %s' %
-                        (arc_filenames[bk]))
-            traceback.print_exc()
-            continue
-        wave_list.append(wavelength)
-        wave_time.append(mtime)
-    
-    # =============================================================================
-    # Rectify domeflat spectra and get fiber to fiber
-    # =============================================================================
-    ftf_list = []
-    log.info('Getting fiber to fiber for each master domeFlat')
-    for fltsp, mtime in zip(fltspec, flttime_list):
-        wavelength = wave_list[get_cal_index(mtime, wave_time)]        
-        domeflat_spec, domeflat_error = fltsp
-        domeflat_rect, domeflat_error_rect = rectify(domeflat_spec, domeflat_error,
-                                                     wavelength, def_wave)
-        ftf, ftf_smooth = get_fiber_to_fiber(domeflat_rect)
-        ftf_list.append(ftf)
-        
-    
-    pca = reduce(arc_filenames[0], biastime_list, masterbias_list, flttime_list,
-                 trace_list, wave_time, wave_list, ftf_list, channel, pca=None,
-                 outfolder=outfolder)
-    for fn in sci_filenames:
-        log.info('Reducing: %s' % fn)
-        sky, cont = reduce(fn, biastime_list, masterbias_list, flttime_list,
-                           trace_list, wave_time, wave_list, ftf_list,
-                           channel, pca=pca,
-                           outfolder=outfolder)
+        masterflt_list, flttime_list = make_mastercal_list(flt_filenames,
+                                                           flt_breakind, channel)
+
+        log.info('Making master arc frames')
+        masterarc_list, arctime_list = make_mastercal_list(arc_filenames,
+                                                           arc_breakind, channel)
+
+
+        # =============================================================================
+        # Get trace from the dome flat
+        # =============================================================================
+        trace_list = []
+        fltspec = []
+        log.info('Getting trace for each master flat')
+
+        ACCIDENTAL_LAST_MASTER_FLAT = None  # TODO: REVIEW! accidental assignment from last iteration in for loop
+
+        for masterflt, mtime in zip(masterflt_list, flttime_list):
+            masterbias = masterbias_list[get_cal_index(mtime, biastime_list)]
+            trace, good, Tchunk, xchunk = get_trace(masterflt-masterbias, ref)
+            plot_trace(trace, Tchunk, xchunk, outfolder=outfolder)
+            trace_list.append([trace, good])
+            domeflat_spec = get_spectra(masterflt-masterbias, trace)
+            domeflat_error = 0. * domeflat_spec
+            fltspec.append([domeflat_spec, domeflat_error])
+
+        ACCIDENTAL_LAST_MASTER_FLAT = masterflt  # TODO: REVIEW! accidental assignment from last iteration in for loop
+                                                 # TODO: masterflt is only defined by this for loop, then later used as a global in reduce()
+
+        # =============================================================================
+        # Get wavelength from arc lamps
+        # =============================================================================
+        wave_list = []
+        wave_time = []
+        bk1 = np.hstack([0, arc_breakind+1])
+        log.info('Getting wavelength for each master arc')
+        import traceback
+        for masterarc, mtime, bk in zip(masterarc_list, arctime_list, bk1):
+            masterbias = masterbias_list[get_cal_index(mtime, biastime_list)]
+            trace, good = trace_list[get_cal_index(mtime, flttime_list)]
+            lamp_spec = get_spectra(masterarc-masterbias, trace)
+            fits.PrimaryHDU(lamp_spec).writeto('test.fits',overwrite=True)
+            try:
+                wavelength, res, X, W = get_wavelength(lamp_spec, trace, good,
+                                                       xref, lines, limit=limit,
+                                                       use_kernel=use_kernel)
+                # Plot wavelength solution for inspection
+                plot_wavelength(lines, W, wavelength, outfolder=outfolder)
+
+            except:
+                log.warning('Could not get wavelength solution for masterarc')
+                log.warning('First file of failed masterarc included: %s' %
+                            (arc_filenames[bk]))
+                traceback.print_exc()
+                continue
+            wave_list.append(wavelength)
+            wave_time.append(mtime)
+
+        # =============================================================================
+        # Rectify domeflat spectra and get fiber to fiber
+        # =============================================================================
+        ftf_list = []
+        log.info('Getting fiber to fiber for each master domeFlat')
+        for fltsp, mtime in zip(fltspec, flttime_list):
+            wavelength = wave_list[get_cal_index(mtime, wave_time)]
+            domeflat_spec, domeflat_error = fltsp
+            domeflat_rect, domeflat_error_rect = rectify(domeflat_spec, domeflat_error,
+                                                         wavelength, def_wave)
+            ftf, ftf_smooth = get_fiber_to_fiber(domeflat_rect)
+            ftf_list.append(ftf)
+
+
+        pca = reduce(arc_filenames[0], biastime_list, masterbias_list, masterflt_list, flttime_list,
+                     trace_list, wave_time, wave_list, ftf_list, channel, pca=None,
+                     outfolder=outfolder)
+        for fn in sci_filenames:
+            log.info('Reducing: %s' % fn)
+            sky, cont = reduce(fn, biastime_list, masterbias_list, masterflt_list, flttime_list,
+                               trace_list, wave_time, wave_list, ftf_list,
+                               channel, pca=pca,
+                               outfolder=outfolder)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
