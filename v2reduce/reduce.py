@@ -35,6 +35,20 @@ sns.set_style('ticks')
 plt.rcParams["font.family"] = "Times New Roman"
 
 
+# Initialize wavelength array and starting fiber position
+CONFIG_FIBER_REF = 130
+CONFIG_CHANNEL_DETECTOR = {'g': {'gain': 2.017, 'rdnoise': 3.09, 'limit': 20},
+                           'b': {'gain': None,  'rdnoise': None, 'limit': None},
+                           'r': {'gain': None,  'rdnoise': None, 'limit': None},
+                           'd': {'gain': None,  'rdnoise': None, 'limit': None}}
+CONFIG_CHANNEL_DEF_WAVE = {'g': np.linspace(4610., 5925., 2064),
+                           'b': np.linspace(3700., 4630., 2064),
+                           'r': np.linspace(5900., 7610., 2064),
+                           'd': np.linspace(7590., 9300., 2064)}
+CONFIG_FIBER_RADIUS = 2.483 / 2.
+CONFIG_PCA_COMPONENTS = 15
+
+
 def identify_sky_pixels(sky, per=50, size=50):
     """
     Identifies sky pixels by applying a percentile filter and sigma-clipping.
@@ -221,7 +235,7 @@ def get_fiber_to_fiber(spectrum, n_chunks=100):
     return initial_ftf, ftf
     
 
-def get_wavelength(spectrum, trace, good, xref, lines, use_kernel=True, limit=100):
+def get_wavelength(spectrum, trace, good, xref, lines, use_kernel=True, limit=100, fiberref=CONFIG_FIBER_REF):
     """
     Computes the wavelength solution for each fiber in a spectrograph based on trace and spectral data.
 
@@ -853,9 +867,11 @@ def base_reduction(data, masterbias, channel):
     image[:] -= masterbias
 
     # Apply gain correction to convert counts to electrons
+    gain = CONFIG_CHANNEL_DETECTOR[channel]['gain']
     image[:] *= gain
 
     # Calculate the error estimate (read noise + photon noise)
+    rdnoise = CONFIG_CHANNEL_DETECTOR[channel]['rdnoise']
     E = np.sqrt(rdnoise**2 + np.where(image > 0., image, 0.))
 
     # Return the reduced image and the error estimate
@@ -984,7 +1000,7 @@ def get_residual_map(data, pca):
 
 
 
-def get_arc_pca(arcskysub, good, mask, components=15):
+def get_arc_pca(arcskysub, good, mask, components=CONFIG_PCA_COMPONENTS):
     """
     Perform PCA on the arc-sky-subtracted data with preprocessing to remove 
     bad data points and mask the non-relevant pixels.
@@ -1144,6 +1160,8 @@ def reduce(fn, biastime_list, masterbias_list, flttime_list,
     specerr = get_spectra_error(E, trace)
 
     # Compute the chi-square of the spectrum to identify bad pixels
+    masterflt = ACCIDENTAL_LAST_MASTER_FLAT  # TODO: REVIEW! This is the explicit equivalent assignment from a
+                                             # TODO: scoping accident with masterflt for loop in main()
     chi2 = get_spectra_chi2(masterflt - masterbias, image, E, trace)
     badpix = chi2 > 20.  # Pixels with chi2 > 20 are considered bad
     specerr[badpix] = np.nan
@@ -1153,6 +1171,7 @@ def reduce(fn, biastime_list, masterbias_list, flttime_list,
     wavelength = wave_list[get_cal_index(mtime, wave_time)]
 
     # Rectify the spectrum and error based on the wavelength
+    def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]
     specrect, errrect = rectify(spec, specerr, wavelength, def_wave)
 
     # Apply flat-field correction
@@ -1168,7 +1187,7 @@ def reduce(fn, biastime_list, masterbias_list, flttime_list,
 
     # If PCA is not provided, compute it from the sky-subtracted data
     if pca is None:
-        pca = get_arc_pca(skysubrect, good, skymask, components=pca_comp)
+        pca = get_arc_pca(skysubrect, good, skymask, components=CONFIG_PCA_COMPONENTS)
         return pca
 
     # Adjust the sky mask and compute the continuum
@@ -1184,13 +1203,13 @@ def reduce(fn, biastime_list, masterbias_list, flttime_list,
     res[:, ~skymask] = 0.0
 
     # Write the final reduced data to a new FITS file
-    write_fits(skysubrect - res, skysubrect, specrect, errrect, f[0].header, outfolder)
+    write_fits(skysubrect - res, skysubrect, specrect, errrect, f[0].header, channel, outfolder)
 
     # Return the biweighted spectrum and continuum
     return biweight(specrect, axis=0,ignore_nan=True), cont
 
 
-def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, outfolder=os.curdir):
+def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, channel, outfolder=os.curdir):
     """
     Writes the sky-subtracted, rectified spectra and error data to a FITS file, 
     preserving the header information and adding necessary meta-information.
@@ -1224,10 +1243,11 @@ def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, outfolde
                 del hdu.header[key]
         
         # Define your wavelength solution
-        wavelength_step = def_wave[1] - def_wave[0]  # Compute wavelength step
+        channel_def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]
+        wavelength_step = channel_def_wave[1] - channel_def_wave[0]  # Compute wavelength step
         
         # Set WCS parameters correctly
-        hdu.header['CRVAL1'] = def_wave[0]  # First wavelength (Angstroms)
+        hdu.header['CRVAL1'] = channel_def_wave[0]  # First wavelength (Angstroms)
         hdu.header['CRPIX1'] = 1  # First pixel corresponds to first wavelength
         hdu.header['CD1_1'] = wavelength_step  # Set CD1_1 to match wavelength step
         hdu.header['CTYPE1'] = 'WAVE'  # Spectral axis label
@@ -1260,7 +1280,8 @@ def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, outfolde
         hdulist.append(hdu)
 
     # Write the HDU list to the output file, overwriting if necessary
-    fits.HDUList(hdulist).writeto(op.join(outfolder, iname + '.fits'), overwrite=True)
+    ACCIDENTAL_LAST_INAME = iname  # TODO: REVIEW! Accidental assignment from last iteration of for loop
+    fits.HDUList(hdulist).writeto(op.join(outfolder, ACCIDENTAL_LAST_INAME + '.fits'), overwrite=True)
 
 
 def make_mastercal_list(filenames, breakind, channel):
@@ -1427,15 +1448,15 @@ mkpath(outfolder)
 
 ROOT_DATA_PATH = args.infolder
 date = args.date
-allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date, 
+allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date,
                                      '*', '*', '*.fits')))
 unit_list = [fn.split('_')[-4] for fn in allfilenames]
 units = np.unique(unit_list)
 observations = np.unique([fn.split('_')[-6]  for fn in allfilenames])
 DIRNAME = get_script_path()
 
-fiber_radius = 2.483 / 2.
-pca_comp = 15
+# fiber_radius = CONFIG_FIBER_RADIUS  # Unused variable
+# pca_comp = CONFIG_PCA_COMPONENTS    # Replaced with CONFIG value at top
 
 # =============================================================================
 # Logging
@@ -1447,33 +1468,37 @@ log = setup_logging('virusp_reductions')
 # =============================================================================
 for unit in units:
     channel = unit[-1].lower()
+    line_list = None
+    xref = None
+    limit = None
+    gain = None
+    rdnoise = None
     if channel == 'b':
-        def_wave = np.linspace(3700., 4630., 2064)
+        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(3700., 4630., 2064)
         continue
     if channel == 'g':
-        def_wave = np.linspace(4610., 5925., 2064)
-        line_list = Table.read(op.join(DIRNAME, 'line_list', 
-                                        'virus2_green.txt'), format='ascii')
-        limit = 20
-        gain = 2.017
-        rdnoise = 3.09
+        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(4610., 5925., 2064)
+        line_list = Table.read(op.join(DIRNAME, 'line_list', 'virus2_green.txt'), format='ascii')
+        limit = CONFIG_CHANNEL_DETECTOR[channel]['limit']
+        gain = CONFIG_CHANNEL_DETECTOR[channel]['gain']
+        rdnoise = CONFIG_CHANNEL_DETECTOR[channel]['rdnoise']
     if channel == 'r':
-        def_wave = np.linspace(5900., 7610., 2064)
+        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(5900., 7610., 2064)
         continue
     if channel == 'd':
-        def_wave = np.linspace(7590., 9300., 2064)
+        def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(7590., 9300., 2064)
         continue
 
     filenames = [fn for fn, un in zip(allfilenames, unit_list) if un == unit]
 
-    fiberref = 130
+    # fiberref = 130  # Unused variable
     lines = np.array(line_list['wavelength'])
     xref = np.array(line_list['col'])
     use_kernel = True
-    
-    
+
+
     # =============================================================================
-    # Make a list of the objects for each filename, ignore those without 'OBJECT' 
+    # Make a list of the objects for each filename, ignore those without 'OBJECT'
     # in the header
     # =============================================================================
     typelist = []
@@ -1490,7 +1515,7 @@ for unit in units:
         typelist.append(obj)
         gnames.append(fn)
         timelist.append(Time(datestring))
-    
+
     # =============================================================================
     # Get the bias filenames, domeflat filenames, and arc lamp filenames
     # =============================================================================
@@ -1566,6 +1591,9 @@ for unit in units:
     trace_list = []
     fltspec = []
     log.info('Getting trace for each master flat')
+
+    ACCIDENTAL_LAST_MASTER_FLAT = None  # TODO: REVIEW! accidental assignment from last iteration in for loop
+
     for masterflt, mtime in zip(masterflt_list, flttime_list):
         masterbias = masterbias_list[get_cal_index(mtime, biastime_list)]
         trace, good, Tchunk, xchunk = get_trace(masterflt-masterbias, ref)
@@ -1574,7 +1602,10 @@ for unit in units:
         domeflat_spec = get_spectra(masterflt-masterbias, trace)
         domeflat_error = 0. * domeflat_spec
         fltspec.append([domeflat_spec, domeflat_error])
-    
+
+    ACCIDENTAL_LAST_MASTER_FLAT = masterflt  # TODO: REVIEW! accidental assignment from last iteration in for loop
+                                             # TODO: masterflt is only defined by this for loop, then later used as a global in reduce()
+
     # =============================================================================
     # Get wavelength from arc lamps
     # =============================================================================
@@ -1624,6 +1655,6 @@ for unit in units:
     for fn in sci_filenames:
         log.info('Reducing: %s' % fn)
         sky, cont = reduce(fn, biastime_list, masterbias_list, flttime_list,
-                           trace_list, wave_time, wave_list, ftf_list, 
+                           trace_list, wave_time, wave_list, ftf_list,
                            channel, pca=pca,
                            outfolder=outfolder)
