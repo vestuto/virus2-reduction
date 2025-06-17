@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
-import argparse as ap
 from distutils.dir_util import mkpath
 import glob
+from importlib import resources
 import logging
 import os
 import os.path as op
-import sys
 import warnings
 
 from astropy.convolution import convolve, Gaussian1DKernel
@@ -47,6 +46,25 @@ CONFIG_CHANNEL_DEF_WAVE = {'g': np.linspace(4610., 5925., 2064),
                            'd': np.linspace(7590., 9300., 2064)}
 CONFIG_FIBER_RADIUS = 2.483 / 2.
 CONFIG_PCA_COMPONENTS = 15
+
+
+def get_package_data_filenames(pattern='*.txt'):
+    """
+    Purpose: given an input pattern like '*.txt' or 'IFU*', find installed package data file paths and match pattern,
+    return both the file list and the full package data install path
+    """
+    try:
+        package_data_path = resources.files('v2reduce').joinpath('data')
+        package_data_files = [filename for filename in os.listdir(package_data_path)
+                              if glob.fnmatch.fnmatch(filename, pattern)]
+    except FileNotFoundError as error:
+        # add some context to the exception and rethrow
+        error_msg = f'{error}'
+        error_msg += '\nERROR: INSTALL: Could not locate the expected package-installed reduction config files.'
+        error_msg += '\nERROR: INSTALL: Check the package_data for v2reduce in setup.py'
+        error_msg += '\nERROR: INSTALL: Or use non-package-installed config files of your own'
+        raise FileNotFoundError(error_msg)
+    return package_data_files, package_data_path
 
 
 def identify_sky_pixels(sky, per=50, size=50):
@@ -1383,13 +1401,6 @@ def get_filenames(gnames, typelist, names):
     return np.array(matches)  # Return matched filenames as a numpy array
 
 
-def get_script_path():
-    '''
-    Get script path, aka, where does Antigen live?
-    '''
-    return os.path.dirname(op.realpath(sys.argv[0]))
-
-
 def setup_logging(log_name='input_utils'):
     '''Set up a logger for shuffle with a name ``input_utils``.
 
@@ -1425,7 +1436,8 @@ def process(infolder, outfolder, date, target_name, reduce_all,
     unit_list = [fn.split('_')[-4] for fn in allfilenames]
     units = np.unique(unit_list)
     observations = np.unique([fn.split('_')[-6]  for fn in allfilenames])
-    DIRNAME = get_script_path()
+
+    PKG_DATA_FILE_PATH = resources.files('v2reduce').joinpath('data')
 
     # fiber_radius = CONFIG_FIBER_RADIUS  # Unused variable
     # pca_comp = CONFIG_PCA_COMPONENTS    # Replaced with CONFIG value at top
@@ -1450,7 +1462,8 @@ def process(infolder, outfolder, date, target_name, reduce_all,
             continue
         if channel == 'g':
             def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(4610., 5925., 2064)
-            line_list = Table.read(op.join(DIRNAME, 'line_list', 'virus2_green.txt'), format='ascii')
+            line_list_filename = PKG_DATA_FILE_PATH.joinpath('line_list_virus2_green.txt')
+            line_list = Table.read(line_list_filename, format='ascii')
             limit = CONFIG_CHANNEL_DETECTOR[channel]['limit']
             gain = CONFIG_CHANNEL_DETECTOR[channel]['gain']
             rdnoise = CONFIG_CHANNEL_DETECTOR[channel]['rdnoise']
@@ -1538,7 +1551,8 @@ def process(infolder, outfolder, date, target_name, reduce_all,
         arc_breakind = np.where(np.diff(arcnum) > 1)[0]
 
         # Load reference fiber locations from a predefined file
-        ref = Table.read(op.join(DIRNAME, 'IFUcen', 'IFUcen_VIRUS2_D3G.txt'), format='ascii')
+        ifu_cen_file_name = PKG_DATA_FILE_PATH.joinpath('IFUcen_VIRUS2_D3G.txt')
+        ref = Table.read(ifu_cen_file_name, format='ascii')
         ref.reverse()
         # =============================================================================
         # Make a master bias, master dome flat, and master arc for the first set of OBS
