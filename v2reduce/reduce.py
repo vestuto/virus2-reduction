@@ -1392,6 +1392,9 @@ def get_args():
 
     parser.add_argument("infolder", help='''Input folder''', type=str)
 
+    parser.add_argument('date', type=str,
+                        help='''string name for date, ex: 20250613''')
+
     parser.add_argument('outfolder', type=str,
                         help='''name of the output file''')
 
@@ -1458,19 +1461,24 @@ def setup_logging(log_name='input_utils'):
 
 
 def main():
+
     args = get_args()
 
-    # =============================================================================
-    # Get Input Args and Folder and Filenames
-    # =============================================================================
-    infolder = args.infolder
-    outfolder = args.outfolder
+    process(args.infolder, args.outfolder,
+            args.date, args.target_name, args.reduce_all,
+            args.bias_label, args.arc_label, args.dark_label, args.flat_label, args.twilight_flat_label
+            )
+
+    return None
+
+
+def process(infolder, outfolder, date, target_name, reduce_all,
+            bias_label, arc_label, dark_label, flat_label, twilight_flat_label):
 
     # Make output folder if it doesn't exist
     mkpath(outfolder)
 
-    ROOT_DATA_PATH = args.infolder
-    date = args.date
+    ROOT_DATA_PATH = infolder
     allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date,
                                          '*', '*', '*.fits')))
     unit_list = [fn.split('_')[-4] for fn in allfilenames]
@@ -1543,18 +1551,18 @@ def main():
         # Get the bias filenames, domeflat filenames, and arc lamp filenames
         # =============================================================================
         log.info('Sorting Files')
-        bnames = [args.bias_label]
-        dnames = [args.dark_label]
-        anames = [args.arc_label]
-        tnames = [args.twilight_flat_label]
-        dfnames = [args.flat_label]
+        bnames = [bias_label]
+        dnames = [dark_label]
+        anames = [arc_label]
+        tnames = [twilight_flat_label]
+        dfnames = [flat_label]
         snames = ['feige', 'bd']
         bias_filenames = get_filenames(gnames, typelist, bnames)
         twiflt_filenames = get_filenames(gnames, typelist, tnames)
         domeflt_filenames = get_filenames(gnames, typelist, dfnames)
         arc_filenames = get_filenames(gnames, typelist, anames)
         std_filenames = get_filenames(gnames, typelist, snames)
-        if args.reduce_all:
+        if reduce_all:
             gna = []
             for gn in gnames:
                 if gn in bias_filenames:
@@ -1568,8 +1576,8 @@ def main():
                 gna.append(gn)
             sci_filenames = np.array(gna)
         else:
-            if args.name is not None:
-                sci_filenames = get_filenames(gnames, typelist, [args.name])
+            if target_name is not None:
+                sci_filenames = get_filenames(gnames, typelist, [target_name])
             else:
                 sci_filenames = []
 
@@ -1681,6 +1689,7 @@ def main():
                                trace_list, wave_time, wave_list, ftf_list,
                                channel, pca=pca,
                                outfolder=outfolder)
+    return None
 
 
 if __name__ == '__main__':
