@@ -3,6 +3,7 @@
 import argparse as ap
 from distutils.dir_util import mkpath
 import glob
+import logging
 import os
 import os.path as op
 import sys
@@ -24,7 +25,6 @@ from scipy.ndimage import percentile_filter
 import seaborn as sns
 from sklearn.decomposition import PCA
 
-from utils import setup_logging
 
 # Turn off annoying warnings (even though some deserve attention)
 warnings.filterwarnings("ignore")
@@ -1434,9 +1434,28 @@ def get_script_path():
     return os.path.dirname(op.realpath(sys.argv[0]))
 
 
-# ######################################################
-# MAIN!
-# ######################################################
+def setup_logging(log_name='input_utils'):
+    '''Set up a logger for shuffle with a name ``input_utils``.
+
+    Use a StreamHandler to write to stdout and set the level to DEBUG if
+    verbose is set from the command line
+    '''
+    log = logging.getLogger(log_name)
+    if not len(log.handlers):
+        fmt = '[%(levelname)s - %(asctime)s] %(message)s'
+        fmt = logging.Formatter(fmt)
+
+        level = logging.INFO
+
+        handler = logging.StreamHandler()
+        handler.setFormatter(fmt)
+        handler.setLevel(level)
+
+        log = logging.getLogger(log_name)
+        log.setLevel(logging.DEBUG)
+        log.addHandler(handler)
+    return log
+
 
 def main():
     args = get_args()
