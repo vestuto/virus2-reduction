@@ -360,11 +360,7 @@ def get_wavelength(spectrum, trace, good, xref, lines, use_kernel=True, limit=10
         if good[j]:
             wavelength[j] = np.polyval(np.polyfit(X[j][goodlines], 
                                                   lines[goodlines], 5), xall)
-    
-        
-    # Plot wavelength solution for inspection
-    plot_wavelength(lines, W, wavelength)
-    
+
     return wavelength, res, X, W
 
 
@@ -751,7 +747,7 @@ def get_trace(twilight, ref):
     return trace, np.isfinite(ref['px']), Trace, xchunks
 
 
-def plot_wavelength(lines, W, wavelength):
+def plot_wavelength(lines, W, wavelength, global_outfolder=os.curdir):
     '''
     Plots the residuals of the wavelength solution using a violin plot.
     
@@ -798,7 +794,7 @@ def plot_wavelength(lines, W, wavelength):
     # Save the plot as a PNG file with the given name
     plt.savefig(op.join(global_outfolder, 'wavelength_measures.png'))
 
-def plot_trace(full_trace, trace, x, orders=[5, 130, 230]):
+def plot_trace(full_trace, trace, x, orders=[5, 130, 230], global_outfolder=os.curdir):
 
     '''
     Plots the residuals of the trace correction and saves the figure.
@@ -1149,7 +1145,7 @@ def get_continuum(skysub, masksky, nbins=50):
     
 def reduce(fn, biastime_list, masterbias_list, flttime_list,
            trace_list, wave_time, wave_list, ftf_list, channel, 
-           pca=None):
+           pca=None, global_outfolder=os.curdir):
     """
     Reduce the raw data by performing a series of processing steps, 
     including bias subtraction, flat-fielding, sky subtraction, 
@@ -1245,13 +1241,13 @@ def reduce(fn, biastime_list, masterbias_list, flttime_list,
     res[:, ~skymask] = 0.0
 
     # Write the final reduced data to a new FITS file
-    write_fits(skysubrect - res, skysubrect, specrect, errrect, f[0].header)
+    write_fits(skysubrect - res, skysubrect, specrect, errrect, f[0].header, global_outfolder)
 
     # Return the biweighted spectrum and continuum
     return biweight(specrect, axis=0,ignore_nan=True), cont
 
 
-def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header):
+def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, global_outfolder=os.curdir):
     """
     Writes the sky-subtracted, rectified spectra and error data to a FITS file, 
     preserving the header information and adding necessary meta-information.
@@ -1569,7 +1565,7 @@ for unit in units:
     for masterflt, mtime in zip(masterflt_list, flttime_list):
         masterbias = masterbias_list[get_cal_index(mtime, biastime_list)]
         trace, good, Tchunk, xchunk = get_trace(masterflt-masterbias, ref)
-        plot_trace(trace, Tchunk, xchunk)
+        plot_trace(trace, Tchunk, xchunk, global_outfolder=global_outfolder)
         trace_list.append([trace, good])
         domeflat_spec = get_spectra(masterflt-masterbias, trace)
         domeflat_error = 0. * domeflat_spec
@@ -1592,6 +1588,9 @@ for unit in units:
             wavelength, res, X, W = get_wavelength(lamp_spec, trace, good, 
                                                    xref, lines, limit=limit, 
                                                    use_kernel=use_kernel)
+            # Plot wavelength solution for inspection
+            plot_wavelength(lines, W, wavelength, global_outfolder=global_outfolder)
+
         except:
             log.warning('Could not get wavelength solution for masterarc')
             log.warning('First file of failed masterarc included: %s' %
@@ -1616,9 +1615,11 @@ for unit in units:
         
     
     pca = reduce(arc_filenames[0], biastime_list, masterbias_list, flttime_list,
-                 trace_list, wave_time, wave_list, ftf_list, channel, pca=None)
+                 trace_list, wave_time, wave_list, ftf_list, channel, pca=None,
+                 global_outfolder=global_outfolder)
     for fn in sci_filenames:
         log.info('Reducing: %s' % fn)
         sky, cont = reduce(fn, biastime_list, masterbias_list, flttime_list,
                            trace_list, wave_time, wave_list, ftf_list, 
-                           channel, pca=pca)
+                           channel, pca=pca,
+                           global_outfolder=global_outfolder)
