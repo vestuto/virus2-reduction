@@ -18,7 +18,7 @@ from astropy.stats import mad_std
 from astropy.table import Table
 from astropy.time import Time
 from distutils.dir_util import mkpath
-from input_utils import setup_logging
+from utils import setup_logging
 from astropy.stats import biweight_location as biweight
 from scipy.interpolate import interp1d
 from scipy.ndimage import percentile_filter
