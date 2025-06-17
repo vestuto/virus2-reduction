@@ -35,7 +35,7 @@ def get_args():
 
     parser = ap.ArgumentParser(add_help=True)
 
-    parser.add_argument("folder", help='''Input folder''', type=str)
+    parser.add_argument("infolder", help='''Input folder''', type=str)
 
     parser.add_argument('outfolder', type=str,
                         help='''name of the output file''')
@@ -74,10 +74,10 @@ def get_args():
 
 
 args = get_args()
-folder = args.folder
-outfolder = args.outfolder
+infolder = args.infolder
+global_outfolder = args.outfolder
 # Make output folder if it doesn't exist
-mkpath(outfolder)
+mkpath(global_outfolder)
 
 log = setup_logging('virusp_reductions')
 
@@ -796,7 +796,7 @@ def plot_wavelength(lines, W, wavelength):
     plt.xticks(rotation=45)
 
     # Save the plot as a PNG file with the given name
-    plt.savefig(op.join(outfolder, 'wavelength_measures.png'))
+    plt.savefig(op.join(global_outfolder, 'wavelength_measures.png'))
 
 def plot_trace(full_trace, trace, x, orders=[5, 130, 230]):
 
@@ -845,7 +845,7 @@ def plot_trace(full_trace, trace, x, orders=[5, 130, 230]):
     plt.ylabel('Trace - Mean(Trace)')
 
     # Save the plot as a PNG file with the given name
-    plt.savefig(op.join(outfolder, 'trace_measures.png'))
+    plt.savefig(op.join(global_outfolder, 'trace_measures.png'))
     
 
 def prep_image(image, channel):
@@ -1321,7 +1321,7 @@ def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header):
         hdulist.append(hdu)
 
     # Write the HDU list to the output file, overwriting if necessary
-    fits.HDUList(hdulist).writeto(op.join(outfolder, iname + '.fits'), overwrite=True)
+    fits.HDUList(hdulist).writeto(op.join(global_outfolder, iname + '.fits'), overwrite=True)
 
 
 def make_mastercal_list(filenames, breakind, channel):
@@ -1425,7 +1425,7 @@ def get_filenames(gnames, typelist, names):
 # =============================================================================
 # Get Folder and Filenames
 # =============================================================================
-ROOT_DATA_PATH = args.folder
+ROOT_DATA_PATH = args.infolder
 date = args.date
 allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date, 
                                      '*', '*', '*.fits')))
