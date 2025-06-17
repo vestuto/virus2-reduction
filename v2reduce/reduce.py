@@ -29,6 +29,11 @@ from utils import setup_logging
 # Turn off annoying warnings (even though some deserve attention)
 warnings.filterwarnings("ignore")
 
+sns.set_context('talk')
+sns.set_style('ticks')
+
+plt.rcParams["font.family"] = "Times New Roman"
+
 
 
 def get_args():
@@ -76,15 +81,10 @@ def get_args():
 args = get_args()
 infolder = args.infolder
 global_outfolder = args.outfolder
+
 # Make output folder if it doesn't exist
 mkpath(global_outfolder)
 
-log = setup_logging('virusp_reductions')
-
-sns.set_context('talk')
-sns.set_style('ticks')
-
-plt.rcParams["font.family"] = "Times New Roman"
 
 def get_script_path():
     '''
@@ -1437,6 +1437,10 @@ DIRNAME = get_script_path()
 fiber_radius = 2.483 / 2.
 pca_comp = 15
 
+# =============================================================================
+# Logging
+# =============================================================================
+log = setup_logging('virusp_reductions')
 
 # =============================================================================
 # Get Line List
