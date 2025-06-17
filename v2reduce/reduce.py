@@ -29,45 +29,51 @@ from utils import setup_logging
 # Turn off annoying warnings (even though some deserve attention)
 warnings.filterwarnings("ignore")
 
-parser = ap.ArgumentParser(add_help=True)
 
-parser.add_argument("folder", help='''Input folder''', type=str)
 
-parser.add_argument('date', type=str,
-                     help='''string name for date, ex: 20250613''')
+def get_args():
 
-parser.add_argument('outfolder', type=str,
-                     help='''name of the output file''')
+    parser = ap.ArgumentParser(add_help=True)
 
-parser.add_argument('-n', '--name', type=str,
-                    help='''Name of the science target''', default=None)
+    parser.add_argument("folder", help='''Input folder''', type=str)
 
-parser.add_argument("-ra", "--reduce_all",
-                    help='''Reduce all files in folder''',
-                    action="count", default=0)
+    parser.add_argument('outfolder', type=str,
+                        help='''name of the output file''')
 
-parser.add_argument("-bl", "--bias_label",
-                    help='''The objet name for bias files''',
-                   type=str, default='bias')
+    parser.add_argument('-n', '--name', type=str,
+                        help='''Name of the science target''', default=None)
 
-parser.add_argument("-al", "--arc_label",
-                    help='''The objet name for arc files''',
-                   type=str, default='arc')
+    parser.add_argument("-ra", "--reduce_all",
+                        help='''Reduce all files in folder''',
+                        action="count", default=0)
 
-parser.add_argument("-dl", "--dark_label",
-                    help='''The objet name for arc files''',
-                   type=str, default='dark')
+    parser.add_argument("-bl", "--bias_label",
+                        help='''The objet name for bias files''',
+                        type=str, default='bias')
 
-parser.add_argument("-fl", "--flat_label",
-                    help='''The objet name for dome flat files''',
-                   type=str, default='flat')
+    parser.add_argument("-al", "--arc_label",
+                        help='''The objet name for arc files''',
+                        type=str, default='arc')
 
-parser.add_argument("-tfl", "--twilight_flat_label",
-                    help='''The objet name for twilight flat files''',
-                   type=str, default='twi')
+    parser.add_argument("-dl", "--dark_label",
+                        help='''The objet name for arc files''',
+                        type=str, default='dark')
 
-argv = None
-args = parser.parse_args(args=argv)
+    parser.add_argument("-fl", "--flat_label",
+                        help='''The objet name for dome flat files''',
+                        type=str, default='flat')
+
+    parser.add_argument("-tfl", "--twilight_flat_label",
+                        help='''The objet name for twilight flat files''',
+                        type=str, default='twi')
+    argv = None
+    args = parser.parse_args(args=argv)
+
+    return args
+
+
+
+args = get_args()
 folder = args.folder
 outfolder = args.outfolder
 # Make output folder if it doesn't exist
