@@ -80,10 +80,10 @@ def get_args():
 
 args = get_args()
 infolder = args.infolder
-global_outfolder = args.outfolder
+outfolder = args.outfolder
 
 # Make output folder if it doesn't exist
-mkpath(global_outfolder)
+mkpath(outfolder)
 
 
 def get_script_path():
@@ -747,7 +747,7 @@ def get_trace(twilight, ref):
     return trace, np.isfinite(ref['px']), Trace, xchunks
 
 
-def plot_wavelength(lines, W, wavelength, global_outfolder=os.curdir):
+def plot_wavelength(lines, W, wavelength, outfolder=os.curdir):
     '''
     Plots the residuals of the wavelength solution using a violin plot.
     
@@ -792,9 +792,9 @@ def plot_wavelength(lines, W, wavelength, global_outfolder=os.curdir):
     plt.xticks(rotation=45)
 
     # Save the plot as a PNG file with the given name
-    plt.savefig(op.join(global_outfolder, 'wavelength_measures.png'))
+    plt.savefig(op.join(outfolder, 'wavelength_measures.png'))
 
-def plot_trace(full_trace, trace, x, orders=[5, 130, 230], global_outfolder=os.curdir):
+def plot_trace(full_trace, trace, x, orders=[5, 130, 230], outfolder=os.curdir):
 
     '''
     Plots the residuals of the trace correction and saves the figure.
@@ -841,7 +841,7 @@ def plot_trace(full_trace, trace, x, orders=[5, 130, 230], global_outfolder=os.c
     plt.ylabel('Trace - Mean(Trace)')
 
     # Save the plot as a PNG file with the given name
-    plt.savefig(op.join(global_outfolder, 'trace_measures.png'))
+    plt.savefig(op.join(outfolder, 'trace_measures.png'))
     
 
 def prep_image(image, channel):
@@ -1145,7 +1145,7 @@ def get_continuum(skysub, masksky, nbins=50):
     
 def reduce(fn, biastime_list, masterbias_list, flttime_list,
            trace_list, wave_time, wave_list, ftf_list, channel, 
-           pca=None, global_outfolder=os.curdir):
+           pca=None, outfolder=os.curdir):
     """
     Reduce the raw data by performing a series of processing steps, 
     including bias subtraction, flat-fielding, sky subtraction, 
@@ -1241,13 +1241,13 @@ def reduce(fn, biastime_list, masterbias_list, flttime_list,
     res[:, ~skymask] = 0.0
 
     # Write the final reduced data to a new FITS file
-    write_fits(skysubrect - res, skysubrect, specrect, errrect, f[0].header, global_outfolder)
+    write_fits(skysubrect - res, skysubrect, specrect, errrect, f[0].header, outfolder)
 
     # Return the biweighted spectrum and continuum
     return biweight(specrect, axis=0,ignore_nan=True), cont
 
 
-def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, global_outfolder=os.curdir):
+def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, outfolder=os.curdir):
     """
     Writes the sky-subtracted, rectified spectra and error data to a FITS file, 
     preserving the header information and adding necessary meta-information.
@@ -1317,7 +1317,7 @@ def write_fits(skysubrect_adv, skysubrect, specrect, errorrect, header, global_o
         hdulist.append(hdu)
 
     # Write the HDU list to the output file, overwriting if necessary
-    fits.HDUList(hdulist).writeto(op.join(global_outfolder, iname + '.fits'), overwrite=True)
+    fits.HDUList(hdulist).writeto(op.join(outfolder, iname + '.fits'), overwrite=True)
 
 
 def make_mastercal_list(filenames, breakind, channel):
@@ -1565,7 +1565,7 @@ for unit in units:
     for masterflt, mtime in zip(masterflt_list, flttime_list):
         masterbias = masterbias_list[get_cal_index(mtime, biastime_list)]
         trace, good, Tchunk, xchunk = get_trace(masterflt-masterbias, ref)
-        plot_trace(trace, Tchunk, xchunk, global_outfolder=global_outfolder)
+        plot_trace(trace, Tchunk, xchunk, outfolder=outfolder)
         trace_list.append([trace, good])
         domeflat_spec = get_spectra(masterflt-masterbias, trace)
         domeflat_error = 0. * domeflat_spec
@@ -1589,7 +1589,7 @@ for unit in units:
                                                    xref, lines, limit=limit, 
                                                    use_kernel=use_kernel)
             # Plot wavelength solution for inspection
-            plot_wavelength(lines, W, wavelength, global_outfolder=global_outfolder)
+            plot_wavelength(lines, W, wavelength, outfolder=outfolder)
 
         except:
             log.warning('Could not get wavelength solution for masterarc')
@@ -1616,10 +1616,10 @@ for unit in units:
     
     pca = reduce(arc_filenames[0], biastime_list, masterbias_list, flttime_list,
                  trace_list, wave_time, wave_list, ftf_list, channel, pca=None,
-                 global_outfolder=global_outfolder)
+                 outfolder=outfolder)
     for fn in sci_filenames:
         log.info('Reducing: %s' % fn)
         sky, cont = reduce(fn, biastime_list, masterbias_list, flttime_list,
                            trace_list, wave_time, wave_list, ftf_list, 
                            channel, pca=pca,
-                           global_outfolder=global_outfolder)
+                           outfolder=outfolder)
