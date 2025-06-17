@@ -1,31 +1,30 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-@author: gregz
-@author: mayad
-"""
+#!/usr/bin/env python
 
 import argparse as ap
+from distutils.dir_util import mkpath
 import glob
-import numpy as np
+import os
 import os.path as op
 import sys
 import warnings
+
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.io import fits
 from astropy.stats import sigma_clip
 from astropy.stats import mad_std
+from astropy.stats import biweight_location as biweight
 from astropy.table import Table
 from astropy.time import Time
-from distutils.dir_util import mkpath
-from utils import setup_logging
-from astropy.stats import biweight_location as biweight
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.ndimage import percentile_filter
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
+from sklearn.decomposition import PCA
+
+from utils import setup_logging
 
 # Turn off annoying warnings (even though some deserve attention)
 warnings.filterwarnings("ignore")
@@ -85,7 +84,7 @@ def get_script_path():
     '''
     Get script path, aka, where does Antigen live?
     '''
-    return op.dirname(op.realpath(sys.argv[0]))
+    return os.path.dirname(op.realpath(sys.argv[0]))
 
 def identify_sky_pixels(sky, per=50, size=50):
     """
