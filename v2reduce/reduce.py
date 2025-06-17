@@ -35,63 +35,6 @@ sns.set_style('ticks')
 plt.rcParams["font.family"] = "Times New Roman"
 
 
-
-def get_args():
-
-    parser = ap.ArgumentParser(add_help=True)
-
-    parser.add_argument("infolder", help='''Input folder''', type=str)
-
-    parser.add_argument('outfolder', type=str,
-                        help='''name of the output file''')
-
-    parser.add_argument('-n', '--name', type=str,
-                        help='''Name of the science target''', default=None)
-
-    parser.add_argument("-ra", "--reduce_all",
-                        help='''Reduce all files in folder''',
-                        action="count", default=0)
-
-    parser.add_argument("-bl", "--bias_label",
-                        help='''The objet name for bias files''',
-                        type=str, default='bias')
-
-    parser.add_argument("-al", "--arc_label",
-                        help='''The objet name for arc files''',
-                        type=str, default='arc')
-
-    parser.add_argument("-dl", "--dark_label",
-                        help='''The objet name for arc files''',
-                        type=str, default='dark')
-
-    parser.add_argument("-fl", "--flat_label",
-                        help='''The objet name for dome flat files''',
-                        type=str, default='flat')
-
-    parser.add_argument("-tfl", "--twilight_flat_label",
-                        help='''The objet name for twilight flat files''',
-                        type=str, default='twi')
-    argv = None
-    args = parser.parse_args(args=argv)
-
-    return args
-
-
-
-args = get_args()
-infolder = args.infolder
-outfolder = args.outfolder
-
-# Make output folder if it doesn't exist
-mkpath(outfolder)
-
-
-def get_script_path():
-    '''
-    Get script path, aka, where does Antigen live?
-    '''
-    return os.path.dirname(op.realpath(sys.argv[0]))
-
 def identify_sky_pixels(sky, per=50, size=50):
     """
     Identifies sky pixels by applying a percentile filter and sigma-clipping.
@@ -1417,10 +1360,71 @@ def get_filenames(gnames, typelist, names):
                 matches.append(gn)  # Append matching filename to the list
     return np.array(matches)  # Return matched filenames as a numpy array
 
+# =============================================================================
+# Get input args
+# =============================================================================
+
+def get_args():
+
+    parser = ap.ArgumentParser(add_help=True)
+
+    parser.add_argument("infolder", help='''Input folder''', type=str)
+
+    parser.add_argument('outfolder', type=str,
+                        help='''name of the output file''')
+
+    parser.add_argument('-n', '--name', type=str,
+                        help='''Name of the science target''', default=None)
+
+    parser.add_argument("-ra", "--reduce_all",
+                        help='''Reduce all files in folder''',
+                        action="count", default=0)
+
+    parser.add_argument("-bl", "--bias_label",
+                        help='''The objet name for bias files''',
+                        type=str, default='bias')
+
+    parser.add_argument("-al", "--arc_label",
+                        help='''The objet name for arc files''',
+                        type=str, default='arc')
+
+    parser.add_argument("-dl", "--dark_label",
+                        help='''The objet name for arc files''',
+                        type=str, default='dark')
+
+    parser.add_argument("-fl", "--flat_label",
+                        help='''The objet name for dome flat files''',
+                        type=str, default='flat')
+
+    parser.add_argument("-tfl", "--twilight_flat_label",
+                        help='''The objet name for twilight flat files''',
+                        type=str, default='twi')
+    argv = None
+    args = parser.parse_args(args=argv)
+
+    return args
+
+
+def get_script_path():
+    '''
+    Get script path, aka, where does Antigen live?
+    '''
+    return os.path.dirname(op.realpath(sys.argv[0]))
+
+
 
 # =============================================================================
-# Get Folder and Filenames
+# Get Input Args and Folder and Filenames
 # =============================================================================
+
+args = get_args()
+
+infolder = args.infolder
+outfolder = args.outfolder
+
+# Make output folder if it doesn't exist
+mkpath(outfolder)
+
 ROOT_DATA_PATH = args.infolder
 date = args.date
 allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date, 
