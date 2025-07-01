@@ -17,8 +17,15 @@ This repository contains a python package for VIRUS2 data reduction
 
 - see [./INSTALL.md](./INSTALL.md)
 
-## Usage
+## Usage: option 1: Restructured package 
 
+- `conda activate env_virus2_reduction`
+- `v2reduce_process.py --help`
+
+## Usage: option 2: original repo
+
+- See [Antigen](https://github.com/maya-debski/Antigen) for help. Usage example from email communication below:
+- Original repo does not structure the code as a python package, so there is no install; just copy/download and run using the explicit file path as a stand-alone script.
 - Example use: [./Antigen/reduce_virus2.py](./Antigen/reduce_virus2.py)
 ```bash
 (base) cns-r-pmaa65420:~ grz85$ python /Users/grz85/work/Antigen/reduce_virus2.py /Users/grz85/work/v2_data/ /Users/grz85/work/v2_data/reduc -ra
