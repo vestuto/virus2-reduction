@@ -5,10 +5,13 @@ This repository contains a python package for VIRUS2 data reduction
 ## Provenance
 
 - The VIRUS2 data reduction pipeline was derived from the VIRUS-P data reduction pipeline.
-- This present repository is a fork from an existing repo containing data reduction scripts for VIRUS-P and VIRUS2
-- Original reduction pipeline `Antigen/reduct_virus2.py` was authored by [Greg Zeiman <grzeimann@gmail.com>](https://github.com/grzeimann) and [Maya Debski <maya.h.debski@gmail.com>](https://github.com/maya-debski)
-- Original source code is available from the public GitHub repository here: `git clone https://github.com/maya-debski/Antigen`
+- This present repository is a "manual" fork from an [existing repo](https://github.com/maya-debski/Antigen) containing data reduction scripts for VIRUS-P and VIRUS2
+- Original reduction pipeline `Antigen/reduct_virus2.py` was authored by [Maya Debski <maya.h.debski@gmail.com>](https://github.com/maya-debski) and [Greg Zeiman <grzeimann@gmail.com>](https://github.com/grzeimann)
+- Original source code is available from the public GitHub repository [Antigen](https://github.com/maya-debski/Antigen): `git clone https://github.com/maya-debski/Antigen`
 - Overhaul of that script into an installable python package was developed by [Jason Vestuto <vestuto@gmail.com>](https://github.com/vestuto)
+- Other major changes to local/global scoping was made to help with anticipated updates and long term care.
+- Didn't want to force the original devs into a PR, so all restructuring here was done in a stand-alone repo, in smaller commits to help illustrate changes, but still allow a rebase if wanted later after travel allowed a group discussion. 
+
 
 ## Installation
 
@@ -16,7 +19,7 @@ This repository contains a python package for VIRUS2 data reduction
 
 ## Usage
 
-- Example use: [./Antigen/reduce_virus2.py](./docs/Antigen/reduce_virus2.py)
+- Example use: [./Antigen/reduce_virus2.py](./Antigen/reduce_virus2.py)
 ```bash
 (base) cns-r-pmaa65420:~ grz85$ python /Users/grz85/work/Antigen/reduce_virus2.py /Users/grz85/work/v2_data/ /Users/grz85/work/v2_data/reduc -ra
 [INFO - 2025-06-13 14:25:26,064] Sorting Files
