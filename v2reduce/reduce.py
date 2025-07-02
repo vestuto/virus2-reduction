@@ -1178,9 +1178,7 @@ def reduce(fn, biastime_list, masterbias_list, masterflt_list, flttime_list,
     specerr = get_spectra_error(E, trace)
 
     # Compute the chi-square of the spectrum to identify bad pixels
-    ACCIDENTAL_LAST_MASTER_FLAT = masterflt_list[-1]  # TODO: This is what was happening in main() in the original code
-    masterflt = ACCIDENTAL_LAST_MASTER_FLAT  # TODO: REVIEW! This is the explicit equivalent assignment from a
-                                             # TODO: scoping accident with masterflt for loop in main()
+    masterflt = masterflt_list[get_cal_index(mtime, flttime_list)]
     chi2 = get_spectra_chi2(masterflt - masterbias, image, E, trace)
     badpix = chi2 > 20.  # Pixels with chi2 > 20 are considered bad
     specerr[badpix] = np.nan
