@@ -1,16 +1,17 @@
 # README
 
-This repository contains a python package for VIRUS2 data reduction
+- This repository is intended as a sandbox to share ideas for VIRUS2 data reduction
+- FOr data reduction, please see the original repo: `git clone https://github.com/maya-debski/Antigen`
 
 ## Provenance
 
 - The VIRUS2 data reduction pipeline was derived from the VIRUS-P data reduction pipeline.
-- This present repository is a "manual" fork from an [existing repo](https://github.com/maya-debski/Antigen) containing data reduction scripts for VIRUS-P and VIRUS2
+- This present repository is an experimental sandbox created as a "manual" fork from an [existing repo](https://github.com/maya-debski/Antigen) containing data reduction scripts for VIRUS-P and VIRUS2
 - Original reduction pipeline `Antigen/reduct_virus2.py` was authored by [Maya Debski <maya.h.debski@gmail.com>](https://github.com/maya-debski) and [Greg Zeiman <grzeimann@gmail.com>](https://github.com/grzeimann)
 - Original source code is available from the public GitHub repository [Antigen](https://github.com/maya-debski/Antigen): `git clone https://github.com/maya-debski/Antigen`
-- Overhaul of that script into an installable python package was developed by [Jason Vestuto <vestuto@gmail.com>](https://github.com/vestuto)
+- Overhaul of that script into an installable python package was developed here by [Jason Vestuto <vestuto@gmail.com>](https://github.com/vestuto)
 - Other major changes to local/global scoping was made to help with anticipated updates and long term care.
-- Didn't want to force the original devs into a PR, so all restructuring here was done in a stand-alone repo, in smaller commits to help illustrate changes, but still allow a rebase if wanted later after travel allowed a group discussion. 
+- Didn't want to force the original devs into a PR, so all restructuring here was done in a stand-alone sandbox repo, in smaller commits to help illustrate changes, but still allow a rebase if wanted later after travel allowed a group discussion. 
 
 
 ## Installation
