@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import datetime as dt
 from distutils.dir_util import mkpath
 import glob
 from importlib import resources
@@ -1422,6 +1423,102 @@ def setup_logging(log_name='input_utils'):
     return log
 
 
+def parse_fits_file_name(fits_filename):
+    """
+    Expected filename pattern is
+        ROOT_PATH/VIRUS2/20250618/0000001/D3G/VIRUS2_20250618_0000005_test_D3G_exp01_20250619T003023.0_test.fits
+        VIRUS2_<obsdate>_<obsid>_<frametype>_<specid>_exp<exposureindex>_<utctime>_<userlabel>.fits
+    """
+    filename_words = fits_filename.split('_')
+    if len(filename_words) != 8:
+        print(f'WARNING: Cannot parse filename, returning None; '
+              f' Expected pattern of 8 words delimited by underscores. '
+              f' filename={fits_filename}')
+        filename_metadata = None
+    else:
+        filename_metadata = dict()
+        filename_metadata['filename']   = fits_filename
+        filename_metadata['instrument'] = filename_words[0]
+        filename_metadata['obs_date']   = filename_words[1]
+        filename_metadata['obs_id']     = filename_words[2]
+        filename_metadata['frame_type'] = filename_words[3]
+        filename_metadata['spec_id']    = filename_words[4]
+        filename_metadata['exp_index']  = filename_words[5]
+        filename_metadata['utc_str']    = filename_words[6]
+        filename_metadata['user_label'] = filename_words[7]
+
+        utc_str = filename_metadata['utc_str']
+        try:
+            obs_datetime = dt.datetime.strptime(utc_str, "%Y%m%dT%H%M%S.%f")
+            filename_metadata['utc_str_date'] = obs_datetime.strftime("%Y-%m-%d")
+            filename_metadata['utc_str_time'] = obs_datetime.strftime("%H:%M:%S")
+        except ValueError:
+            print(f'WARNING: could not parse UTC datetime string: {utc_str}')
+            filename_metadata['utc_str_date'] = None
+            filename_metadata['utc_str_time'] = None
+
+    return filename_metadata
+
+
+def parse_fits_file_tree(root_path, date=None, verbose=False):
+    """
+    Expected filename pattern is
+        ROOT_PATH/VIRUS2/20250618/0000001/D3G/VIRUS2_20250618_0000005_test_D3G_exp01_20250619T003023.0_test.fits
+        VIRUS2_<obsdate>_<obsid>_<frametype>_<specid>_exp<exposureindex>_<utctime>_<userlabel>.fits
+    """
+
+    if verbose:
+        print(f'VERBOSE: Searching for FITS files under in root_path={root_path} for date={date} ...')
+
+    if date:
+        fits_filenames = sorted(glob.glob(op.join(root_path, 'VIRUS2', date, '*', '*', '*.fits')))
+    else:
+        fits_filenames = sorted(glob.glob(op.join(root_path, 'VIRUS2', '*', '*', '*', '*.fits')))
+
+    if verbose:
+        num_files = len(fits_filenames)
+        print(f'VERBOSE: Found {num_files} files under.')
+        if num_files < 1:
+            raise FileNotFoundError(f'ERROR: found no files to process. Exiting...')
+
+    metadata_records = list()
+    for filename in fits_filenames:
+        filename_metadata = parse_fits_file_name(filename)
+        if filename_metadata:
+            metadata_records.append(filename_metadata)
+
+    return metadata_records
+
+
+def parse_file_dir_obs_id(file_name):
+    """
+    Wanting to extract e.g. 0000001 from expected filename pattern like the following:
+        ROOT_PATH/VIRUS2/20250618/0000001/D3G/VIRUS2_20250618_0000005_test_D3G_exp01_20250619T003023.0_test.fits
+    """
+    parent_dir = os.path.dirname(os.path.dirname(file_name))  # Go up two levels
+    dir_name = os.path.basename(parent_dir)  # Get the directory name
+    try:
+        dir_obs_id = int(dir_name)
+    except ValueError:
+        dir_obs_id = None  # or raise, or log error
+    return dir_obs_id
+
+
+def get_fits_file_obs_ids(fits_file_names):
+    """
+    Expected filename pattern is for each filename in the input list:
+        ROOT_PATH/VIRUS2/20250618/0000001/D3G/VIRUS2_20250618_0000005_test_D3G_exp01_20250619T003023.0_test.fits
+        VIRUS2_<obsdate>_<obsid>_<frametype>_<specid>_exp<exposureindex>_<utctime>_<userlabel>.fits
+    """
+    obs_id_list = list()
+    for filename in fits_file_names:
+        filename_metadata = parse_fits_file_name(filename)
+        if filename_metadata:
+            obs_id_list.append(filename_metadata['obs_id'])
+    return obs_id_list
+
+
+
 def process(infolder, outfolder, date, target_name, reduce_all,
             bias_label, arc_label, dark_label, flat_label, twilight_flat_label):
 
@@ -1429,11 +1526,9 @@ def process(infolder, outfolder, date, target_name, reduce_all,
     mkpath(outfolder)
 
     ROOT_DATA_PATH = infolder
-    allfilenames = sorted(glob.glob(op.join(ROOT_DATA_PATH, 'VIRUS2', date,
-                                         '*', '*', '*.fits')))
-    unit_list = [fn.split('_')[-4] for fn in allfilenames]
-    units = np.unique(unit_list)
-    observations = np.unique([fn.split('_')[-6]  for fn in allfilenames])
+    metadata_records = parse_fits_file_tree(ROOT_DATA_PATH, date=date, verbose=True)
+    unit_list = [record['spec_id'] for record in metadata_records]
+    units = list(set(unit_list))
 
     PKG_DATA_FILE_PATH = resources.files('v2reduce').joinpath('data')
 
@@ -1472,7 +1567,7 @@ def process(infolder, outfolder, date, target_name, reduce_all,
             def_wave = CONFIG_CHANNEL_DEF_WAVE[channel]  # np.linspace(7590., 9300., 2064)
             continue
 
-        filenames = [fn for fn, un in zip(allfilenames, unit_list) if un == unit]
+        unit_filenames = [record['filename'] for record in metadata_records if record['spec_id'] == unit]
 
         # fiberref = 130  # Unused variable
         lines = np.array(line_list['wavelength'])
@@ -1487,17 +1582,16 @@ def process(infolder, outfolder, date, target_name, reduce_all,
         typelist = []
         gnames = []
         timelist = []
-        for fn in filenames:
+        for fn in unit_filenames:
+            fn_meta_data = parse_fits_file_name(fn)
             try:
-                obj = fn.split('_')[-5] # fits.open(f)[0].header['OBJECT']
-                dateobs = fn.split('_')[-2].split('T')[0]
-                dateobs = '%s-%s-%s' % (dateobs[:4], dateobs[4:6], dateobs[6:])
-                datestring = dateobs # fits.open(f)[0].header['DATE-OBS']
+                obj_frame_type = fn_meta_data['frame_type']  # fits.open(f)[0].header['OBJECT']
+                obs_date_str = fn_meta_data['utc_str_date']  # fits.open(f)[0].header['DATE-OBS']
             except:
                 continue
-            typelist.append(obj)
+            typelist.append(obj_frame_type)
             gnames.append(fn)
-            timelist.append(Time(datestring))
+            timelist.append(Time(obs_date_str))
 
         # =============================================================================
         # Get the bias filenames, domeflat filenames, and arc lamp filenames
